@@ -451,31 +451,30 @@ Test scenarios:
 
 ## Example Usage Session
 
+Basic workflow example:
+
 ```bash
 # Step 1: Scan USB drives (on Mac)
 uv run dj-indexer scan /Volumes/USB1 --label "USB1 - Main"
 uv run dj-indexer scan /Volumes/USB2 --label "USB2 - DJ Music"
-uv run dj-indexer scan /Volumes/USB3 --label "USB3 - Backup"
 
 # Step 2: Copy db to Windows, then import rekordbox XML
 uv run dj-indexer import-xml "C:\Users\me\rekordbox_collection.xml"
 
-# Step 3: Explore
+# Step 3: Explore and search
 uv run dj-indexer stats
 uv run dj-indexer search "bicep"
-uv run dj-indexer search --regex "bicep|objekt|mall.grab"
-uv run dj-indexer search --artist "Aphex Twin"
-uv run dj-indexer search --re --artist ".*jay.*z.*"
-uv run dj-indexer search --re --artist "bicep|objekt" --in-rekordbox
-uv run dj-indexer search --re --genre "tech(no|house)" --bpm-min 125 --bpm-max 140
-uv run dj-indexer search --bpm-min 125 --bpm-max 135 --genre techno
-uv run dj-indexer search --no-cues          # tracks needing cue point prep
-uv run dj-indexer search --duplicates        # files on multiple drives  
-uv run dj-indexer search --not-in-rekordbox  # not yet in collection
-uv run dj-indexer search --filename "boiler"
-uv run dj-indexer search --playlists         # list all playlists
-uv run dj-indexer search --re --playlist "techno|hard.*house"
+uv run dj-indexer search --artist "Aphex Twin" --in-rekordbox
+uv run dj-indexer search --no-cues
 uv run dj-indexer cues "strobe"
 uv run dj-indexer export all_tracks.csv --playlists
-uv run dj-indexer export-playlists playlists.csv
 ```
+
+**For comprehensive examples** covering all commands, see [docs/usage-examples.md](docs/usage-examples.md):
+- Scanning multiple USB drives
+- Cross-platform workflows (Mac → Windows)
+- All search and filter options
+- Regex patterns and complex queries
+- Cue points and playlist management
+- CSV export workflows
+- Database management and tips

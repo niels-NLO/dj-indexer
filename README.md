@@ -16,7 +16,7 @@ A Python CLI utility for DJs to index music files across multiple USB drives and
 
 ```bash
 # Install dependencies
-uv add mutagen pyrekordbox
+uv sync
 
 # Scan a USB drive
 uv run dj-indexer scan /Volumes/USB1 --label "USB1"
@@ -26,14 +26,21 @@ uv run dj-indexer import-xml collection.xml
 
 # Search
 uv run dj-indexer search "bicep"
-uv run dj-indexer search --re --artist "bicep|objekt" --bpm-min 120
 
-# Show cue points
-uv run dj-indexer cues "strobe"
+# View stats
+uv run dj-indexer stats
 
-# Export
+# Export to CSV
 uv run dj-indexer export tracks.csv --playlists
 ```
+
+**For detailed examples**, see [Usage Examples](docs/usage-examples.md) which includes:
+- Scanning multiple USB drives
+- Cross-platform Mac → Windows workflows
+- Complex search and filtering
+- Cue point management
+- CSV export examples
+- Database management
 
 ## Supported Audio Formats
 
