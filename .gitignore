@@ -134,6 +134,9 @@ dmypy.json
 .uv
 uv.lock
 
+# Claude Code
+.claude/
+
 # Project-specific
 dj_music_index.db
 dj_music_index.db-shm

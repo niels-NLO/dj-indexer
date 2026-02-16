@@ -16,5 +16,10 @@ dj-indexer = "dj_indexer.cli:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+]
+
 [tool.uv]
 package = true

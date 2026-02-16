@@ -109,7 +109,7 @@ def show_stats(conn: sqlite3.Connection):
     print(f"  With any cue points:   {tracks_with_any_cues:,}" if tracks_with_any_cues else f"  With any cue points:   0")
     print(f"  With hot cues:         {tracks_with_hot:,}" if tracks_with_hot else f"  With hot cues:         0")
     if rb_no_cues:
-        print(f"  ⚠️  RB tracks no cues:  {rb_no_cues} (need prep)")
+        print(f"  [!] RB tracks no cues:  {rb_no_cues} (need prep)")
 
     print(f"\nCue Points:")
     print(f"  Total cue points:      {total_cues:,}")
