@@ -57,7 +57,12 @@ The project includes a comprehensive test suite using pytest. Tests verify:
 
 **Setup** (one-time, required on all platforms):
 ```bash
-# Install test dependencies
+# Install test dependencies using uv (native approach)
+uv sync --extra test
+```
+
+Alternatively (pip-compatible syntax):
+```bash
 uv pip install -e ".[test]"
 ```
 
