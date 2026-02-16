@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from pyrekordbox.rbxml import RekordboxXml
+from tqdm import tqdm
 
 from . import db
 
@@ -23,23 +24,33 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
     if not xml_path.exists():
         raise FileNotFoundError(f"XML file not found: {xml_path}")
 
-    print(f"Importing rekordbox XML from {xml_path}...")
+    print(f"\n{'='*60}")
+    print(f"Importing Rekordbox XML Collection")
+    print(f"{'='*60}")
+    print(f"File: {xml_path}\n")
 
+    # Phase 1: Parse XML
+    print("[1/4] Parsing XML file...")
     try:
         xml = RekordboxXml(str(xml_path))
     except Exception as e:
         raise ValueError(f"Failed to parse XML file: {e}")
 
-    print(f"  Product: {xml.product_name} {xml.product_version}")
-    print(f"  Total tracks: {xml.num_tracks}")
+    print(f"      Product: {xml.product_name} {xml.product_version}")
+    print(f"      Tracks: {xml.num_tracks}\n")
 
-    # Build a map of filename_lower -> track_id for existing tracks
+    # Phase 2: Load existing tracks
+    print("[2/4] Loading existing tracks from database...")
     cursor = conn.execute("SELECT id, filename_lower FROM tracks")
     existing_tracks = {row[1]: row[0] for row in cursor.fetchall()}
+    print(f"      Found {len(existing_tracks)} existing tracks\n")
 
-    # Import tracks
+    # Phase 3: Import tracks with progress bar
+    print("[3/4] Importing tracks and metadata...")
     imported_count = 0
-    for idx in range(xml.num_tracks):
+    skipped_count = 0
+
+    for idx in tqdm(range(xml.num_tracks), desc="  Processing", unit="track"):
         try:
             track = xml.get_track(idx)
             if track is None:
@@ -71,6 +82,7 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
                     pass
 
             if not filename:
+                skipped_count += 1
                 continue
 
             filename_lower = filename.lower()
@@ -185,14 +197,32 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
                         )
 
         except Exception as e:
-            print(f"  [WARN] Error importing track {idx}: {e}")
+            skipped_count += 1
+            tqdm.write(f"  [WARN] Error importing track {idx}: {e}")
             continue
 
-    # Import playlists
-    _import_playlists(conn, xml, existing_tracks)
+    print()  # Blank line after progress bar
 
+    # Phase 4: Import playlists
+    print("[4/4] Importing playlists...")
+    playlist_count = _import_playlists(conn, xml, existing_tracks)
+    if playlist_count > 0:
+        print(f"      {playlist_count} playlists imported\n")
+    else:
+        print(f"      No playlists found\n")
+
+    # Commit all changes
     conn.commit()
-    print(f"Import complete. Imported {imported_count} tracks.")
+
+    # Summary
+    print(f"{'='*60}")
+    print(f"Import Complete")
+    print(f"{'='*60}")
+    print(f"[+] Tracks processed:  {xml.num_tracks}")
+    print(f"[+] Tracks imported:   {imported_count}")
+    print(f"[+] Tracks skipped:    {skipped_count}")
+    print(f"[+] Playlists:         {playlist_count}")
+    print(f"{'='*60}\n")
 
 
 def _get_cue_type(type_val: str | int | None, num: int | None) -> str:
@@ -210,10 +240,16 @@ def _get_cue_type(type_val: str | int | None, num: int | None) -> str:
 
 
 def _import_playlists(conn: sqlite3.Connection, xml, existing_tracks: dict):
-    """Import playlists from rekordbox XML."""
+    """Import playlists from rekordbox XML.
+
+    Returns:
+        int: Total number of playlists imported
+    """
     root = xml.get_playlist()
     if root is None:
-        return
+        return 0
+
+    playlist_count = [0]  # Use list to allow modification in nested function
 
     def _process_node(node, parent_path: str = ""):
         """Recursively process playlist nodes."""
@@ -241,6 +277,7 @@ def _import_playlists(conn: sqlite3.Connection, xml, existing_tracks: dict):
                             """,
                             (playlist_name, playlist_path, local_track_id, position),
                         )
+            playlist_count[0] += 1
 
         elif node.is_folder:
             # This is a folder, recurse into children
@@ -249,5 +286,7 @@ def _import_playlists(conn: sqlite3.Connection, xml, existing_tracks: dict):
                 _process_node(child, new_path)
 
     # Process all children of root
-    for child in root.get_playlists():
+    for child in tqdm(root.get_playlists(), desc="  Importing", unit="playlist"):
         _process_node(child)
+
+    return playlist_count[0]
