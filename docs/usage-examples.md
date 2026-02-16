@@ -597,3 +597,30 @@ ls /Volumes
 # Assign drive letter if needed
 ```
 
+### Interrupted XML Import (Ctrl+C or Crash)
+
+If you interrupt the `import-xml` command with Ctrl+C or it crashes mid-way:
+
+**The database is safe!** The import uses incremental commits, so:
+- Already-imported tracks are saved in the database
+- Playlists are fully replaced on each run (always fresh)
+- Cue points are refreshed per track
+
+Just **re-run the same command**:
+```bash
+# Simply re-run, it will:
+# 1. Skip tracks already imported (marked as "already done")
+# 2. Re-import playlists from XML
+# 3. Complete where it left off
+uv run dj-indexer import-xml ~/Downloads/collection.xml
+```
+
+Progress output shows tracks skipped:
+```
+[3/4] Importing tracks and metadata...
+  Processing: 100%|##########| 1000/1000 [00:05<00:00, 198.5track/s]
+  (700 imported, 300 skipped - already done)
+```
+
+**No data loss, no corruption** — the import is designed to be fully resumable.
+

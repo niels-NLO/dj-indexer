@@ -39,21 +39,36 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
     print(f"      Product: {xml.product_name} {xml.product_version}")
     print(f"      Tracks: {xml.num_tracks}\n")
 
-    # Phase 2: Load existing tracks
+    # Phase 2: Load existing tracks and already-imported ones
     print("[2/4] Loading existing tracks from database...")
     cursor = conn.execute("SELECT id, filename_lower FROM tracks")
     existing_tracks = {row[1]: row[0] for row in cursor.fetchall()}
-    print(f"      Found {len(existing_tracks)} existing tracks\n")
+
+    # Load rb_track_id values of already-imported tracks
+    cursor = conn.execute(
+        "SELECT rb_track_id FROM tracks WHERE in_rekordbox = 1 AND rb_track_id IS NOT NULL"
+    )
+    already_imported = {row[0] for row in cursor.fetchall()}
+
+    print(f"      Found {len(existing_tracks)} existing tracks ({len(already_imported)} already imported from rekordbox)\n")
 
     # Phase 3: Import tracks with progress bar
     print("[3/4] Importing tracks and metadata...")
     imported_count = 0
     skipped_count = 0
+    already_done_count = 0
 
     for idx in tqdm(range(xml.num_tracks), desc="  Processing", unit="track"):
         try:
             track = xml.get_track(idx)
             if track is None:
+                continue
+
+            track_id_str = str(track.get("TrackID")) if track.get("TrackID") is not None else None
+
+            # Skip if already imported in a prior run
+            if track_id_str and track_id_str in already_imported:
+                already_done_count += 1
                 continue
 
             title = track.get("Name") or None
@@ -125,13 +140,13 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
                         bitrate,
                         sample_rate,
                         duration_sec,
-                        track.get("TrackID"),
+                        track_id_str,
                         location,
                         track_id,
                     ),
                 )
             else:
-                # Insert new track from rekordbox XML
+                # Insert new track from rekordbox XML (or update if filepath already exists)
                 cursor = conn.execute(
                     """
                     INSERT INTO tracks (
@@ -141,6 +156,27 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
                         comments, label, remixer, in_rekordbox, rb_track_id, rb_location
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(filepath) DO UPDATE SET
+                        filename = excluded.filename,
+                        filename_lower = excluded.filename_lower,
+                        source_label = COALESCE(NULLIF(excluded.source_label, ''), source_label),
+                        title = COALESCE(NULLIF(excluded.title, ''), title),
+                        artist = COALESCE(NULLIF(excluded.artist, ''), artist),
+                        album = COALESCE(NULLIF(excluded.album, ''), album),
+                        genre = COALESCE(NULLIF(excluded.genre, ''), genre),
+                        bpm = COALESCE(excluded.bpm, bpm),
+                        musical_key = COALESCE(NULLIF(excluded.musical_key, ''), musical_key),
+                        duration_sec = COALESCE(excluded.duration_sec, duration_sec),
+                        bitrate = COALESCE(excluded.bitrate, bitrate),
+                        sample_rate = COALESCE(excluded.sample_rate, sample_rate),
+                        file_format = COALESCE(NULLIF(excluded.file_format, ''), file_format),
+                        comments = COALESCE(NULLIF(excluded.comments, ''), comments),
+                        label = COALESCE(NULLIF(excluded.label, ''), label),
+                        remixer = COALESCE(NULLIF(excluded.remixer, ''), remixer),
+                        in_rekordbox = 1,
+                        rb_track_id = excluded.rb_track_id,
+                        rb_location = excluded.rb_location,
+                        date_indexed = datetime('now')
                     """,
                     (
                         location,
@@ -161,13 +197,26 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
                         label,
                         remixer,
                         1,
-                        track.get("TrackID"),
+                        track_id_str,
                         location,
                     ),
                 )
-                track_id = cursor.lastrowid
+                # Get track_id for cue insertion
+                cursor = conn.execute(
+                    "SELECT id FROM tracks WHERE filepath = ?",
+                    (location,),
+                )
+                row = cursor.fetchone()
+                track_id = row[0] if row else None
+
+            if track_id is None:
+                skipped_count += 1
+                continue
 
             imported_count += 1
+
+            # Delete existing cue points (idempotent: safe for re-run)
+            conn.execute("DELETE FROM cue_points WHERE track_id = ?", (track_id,))
 
             # Import cue points for this track
             if hasattr(track, "marks") and track.marks:
@@ -177,24 +226,19 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
                     cue_name = mark.get("Name") or None
                     cue_num = db.safe_int(mark.get("Num"))
 
-                    # Check if cue already exists
-                    cursor = conn.execute(
+                    conn.execute(
                         """
-                        SELECT id FROM cue_points
-                        WHERE track_id = ? AND cue_type = ? AND position_sec = ?
-                        """,
-                        (track_id, cue_type, position_sec),
-                    )
-                    if cursor.fetchone() is None:
-                        conn.execute(
-                            """
-                            INSERT INTO cue_points (
-                                track_id, cue_type, cue_name, cue_num, position_sec
-                            )
-                            VALUES (?, ?, ?, ?, ?)
-                            """,
-                            (track_id, cue_type, cue_name, cue_num, position_sec),
+                        INSERT INTO cue_points (
+                            track_id, cue_type, cue_name, cue_num, position_sec
                         )
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (track_id, cue_type, cue_name, cue_num, position_sec),
+                    )
+
+            # Commit every 100 imported tracks for incremental progress
+            if imported_count % 100 == 0:
+                conn.commit()
 
         except Exception as e:
             skipped_count += 1
@@ -202,26 +246,31 @@ def import_xml(conn: sqlite3.Connection, xml_path: Path):
             continue
 
     print()  # Blank line after progress bar
+    print(f"  ({imported_count} imported, {already_done_count} skipped - already done)\n")
 
     # Phase 4: Import playlists
     print("[4/4] Importing playlists...")
+    # Delete all existing playlists (idempotent: safe for re-run)
+    conn.execute("DELETE FROM playlists")
+    # Then re-import from XML
     playlist_count = _import_playlists(conn, xml, existing_tracks)
     if playlist_count > 0:
         print(f"      {playlist_count} playlists imported\n")
     else:
         print(f"      No playlists found\n")
 
-    # Commit all changes
+    # Final commit to flush all changes
     conn.commit()
 
     # Summary
     print(f"{'='*60}")
     print(f"Import Complete")
     print(f"{'='*60}")
-    print(f"[+] Tracks processed:  {xml.num_tracks}")
-    print(f"[+] Tracks imported:   {imported_count}")
-    print(f"[+] Tracks skipped:    {skipped_count}")
-    print(f"[+] Playlists:         {playlist_count}")
+    print(f"[+] Tracks processed:     {xml.num_tracks}")
+    print(f"[+] Tracks imported:      {imported_count}")
+    print(f"[+] Tracks already done:  {already_done_count}")
+    print(f"[+] Tracks skipped:       {skipped_count}")
+    print(f"[+] Playlists:            {playlist_count}")
     print(f"{'='*60}\n")
 
 
