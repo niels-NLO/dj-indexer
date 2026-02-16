@@ -1,7 +1,20 @@
 [project]
 name = "dj-indexer"
 version = "0.1.0"
-description = "Add your description here"
+description = "Index USB drives and rekordbox collections into a searchable SQLite database"
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    "mutagen>=1.47.0",
+    "pyrekordbox>=0.4.4",
+]
+
+[project.scripts]
+dj-indexer = "dj_indexer.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
