@@ -55,10 +55,14 @@ The project includes a comprehensive test suite using pytest. Tests verify:
 
 ### Running Tests
 
+**Setup** (one-time, required on all platforms):
 ```bash
-# Install test dependencies (one-time setup)
+# Install test dependencies
 uv pip install -e ".[test]"
+```
 
+**Run tests**:
+```bash
 # Run all tests
 uv run pytest
 
@@ -70,6 +74,9 @@ uv run pytest tests/test_rekordbox_xml.py -v
 
 # Run specific test
 uv run pytest tests/test_rekordbox_xml.py::TestRekordboxXMLImport::test_rb5_xml_import_tracks -v
+
+# Run with short summary
+uv run pytest tests/ -q
 ```
 
 ### Test Files
