@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from dj_indexer import db, scanner, rekordbox_xml, rekordbox_usb, search, stats, export
+from dj_indexer import db, scanner, rekordbox_xml, rekordbox_usb, search, stats, export, query, analyze
 
 
 def main():
@@ -72,6 +72,23 @@ def main():
     export_pl_parser = subparsers.add_parser("export-playlists", help="Export playlists to CSV")
     export_pl_parser.add_argument("output", type=Path, help="Output CSV file")
 
+    # query command
+    query_parser = subparsers.add_parser("query", help="Run raw SQL SELECT query")
+    query_parser.add_argument("sql", nargs="?", default=None, help="SQL SELECT statement")
+    query_parser.add_argument("--query-file", type=Path, help="Path to .sql file")
+
+    # analyze command
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze collection by folder, format, etc.")
+    analyze_parser.add_argument("--folders", action="store_true", help="Breakdown by folder path")
+    analyze_parser.add_argument("--in-rekordbox", action="store_true", help="Only rekordbox tracks")
+    analyze_parser.add_argument("--not-in-rekordbox", action="store_true", help="Only non-rekordbox tracks")
+    analyze_parser.add_argument("--source", "-s", help="Filter by source label")
+    analyze_parser.add_argument("--format", help="Filter by file format")
+    analyze_parser.add_argument("--genre", "-g", help="Filter by genre")
+    analyze_parser.add_argument("--bpm-min", type=float, help="Minimum BPM")
+    analyze_parser.add_argument("--bpm-max", type=float, help="Maximum BPM")
+    analyze_parser.add_argument("--limit", type=int, default=100, help="Max results (default: 100)")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -99,6 +116,21 @@ def main():
             export.export_csv(conn, args.output, args.playlists)
         elif args.command == "export-playlists":
             export.export_playlists(conn, args.output)
+        elif args.command == "query":
+            # Handle SQL from arg or file
+            if args.query_file:
+                sql_text = args.query_file.read_text()
+            elif args.sql:
+                sql_text = args.sql
+            else:
+                print("\nError: provide SQL statement or --query-file\n")
+                return
+            try:
+                query.run_query(conn, sql_text)
+            except ValueError as e:
+                print(f"\nError: {e}\n")
+        elif args.command == "analyze":
+            analyze.analyze(conn, args)
     finally:
         conn.close()
 
