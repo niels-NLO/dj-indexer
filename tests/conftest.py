@@ -197,3 +197,69 @@ def _create_test_opus(path: Path, metadata: dict):
     audio["BPM"] = metadata["bpm"]
     audio["INITIALKEY"] = metadata["key"]
     audio.save()
+
+
+@pytest.fixture
+def populated_db(test_db):
+    """Create a test database with various tracks, cues, and playlists for search testing."""
+    cursor = test_db.cursor()
+
+    # Insert test tracks with varied metadata
+    test_tracks = [
+        # (filepath, filename, filename_lower, source_label, title, artist, album, genre, bpm, musical_key)
+        ("/usb1/music/track1.mp3", "track1.mp3", "track1.mp3", "USB1", "Electric Dreams", "Bicep", "Isles", "Techno", 128.0, "2A"),
+        ("/usb1/music/track2.mp3", "track2.mp3", "track2.mp3", "USB1", "Glue", "Bicep", "Isles", "Techno", 129.0, "11B"),
+        ("/usb2/dj/ambient.flac", "ambient.flac", "ambient.flac", "USB2", "Ambient Waves", "Jon Hopkins", "Emerald Rush", "Ambient", 110.0, "6D"),
+        ("/usb2/dj/house_track.flac", "house_track.flac", "house_track.flac", "USB2", "House Drop", "Fisher", "Losing It", "House", 124.0, "1D"),
+        ("/external/backup/duplicate.mp3", "duplicate.mp3", "duplicate.mp3", "External", "Duplicate Track", "Unknown Artist", None, "Techno", 130.0, None),
+        ("/external/backup/chill.mp3", "chill.mp3", "chill.mp3", "External", "Chill Vibes", "Jon Hopkins", "Night Vision", "Ambient", 95.0, "8B"),
+    ]
+
+    track_ids = {}
+    for filepath, filename, filename_lower, source_label, title, artist, album, genre, bpm, musical_key in test_tracks:
+        cursor.execute("""
+            INSERT INTO tracks (filepath, filename, filename_lower, source_label, title, artist, album, genre, bpm, musical_key, in_rekordbox)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (filepath, filename, filename_lower, source_label, title, artist, album, genre, bpm, musical_key))
+        track_ids[filename] = cursor.lastrowid
+
+    # Insert cue points for some tracks
+    cues_data = [
+        # (track_id_key, cue_type, cue_name, cue_num, position_sec)
+        ("track1.mp3", "memory_cue", "Intro", -1, 0.0),
+        ("track1.mp3", "hot_cue_A", "Drop", 0, 32.5),
+        ("track1.mp3", "hot_cue_B", "Break", 1, 64.0),
+        ("track2.mp3", "memory_cue", "Start", -1, 0.0),
+        ("track2.mp3", "hot_cue_A", "Breakdown", 0, 45.0),
+        ("ambient.flac", "memory_cue", "Peak", -1, 120.0),
+        ("house_track.flac", "hot_cue_A", "Drop", 0, 30.0),
+        ("house_track.flac", "hot_cue_B", "Outro", 1, 240.0),
+        ("chill.mp3", "hot_cue_A", "Verse", 0, 15.0),
+    ]
+
+    for track_id_key, cue_type, cue_name, cue_num, position_sec in cues_data:
+        track_id = track_ids[track_id_key]
+        cursor.execute("""
+            INSERT INTO cue_points (track_id, cue_type, cue_name, cue_num, position_sec)
+            VALUES (?, ?, ?, ?, ?)
+        """, (track_id, cue_type, cue_name, cue_num, position_sec))
+
+    # Insert playlists
+    playlists_data = [
+        # (playlist_name, playlist_path, track_id_key, position)
+        ("Techno Bangers", "root/Techno Bangers", "track1.mp3", 1),
+        ("Techno Bangers", "root/Techno Bangers", "track2.mp3", 2),
+        ("Ambient Chill", "root/Ambient/Chill", "ambient.flac", 1),
+        ("Ambient Chill", "root/Ambient/Chill", "chill.mp3", 2),
+        ("House Vibes", "root/Genre/House", "house_track.flac", 1),
+    ]
+
+    for playlist_name, playlist_path, track_id_key, position in playlists_data:
+        track_id = track_ids[track_id_key]
+        cursor.execute("""
+            INSERT INTO playlists (playlist_name, playlist_path, track_id, position)
+            VALUES (?, ?, ?, ?)
+        """, (playlist_name, playlist_path, track_id, position))
+
+    test_db.commit()
+    return test_db
