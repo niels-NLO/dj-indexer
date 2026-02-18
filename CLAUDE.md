@@ -272,18 +272,88 @@ Search results (3 tracks):
 
    Bicep -- Glue
      129 BPM | 2A | USB1 [RB]  [3H/4C]
+     /Volumes/USB1/Music/Bicep/Glue.mp3
 
    Bicep -- Atlas
      132 BPM | 11B | USB1 [RB]  [2H/2C]
+     /Volumes/USB1/Music/Bicep/Atlas.mp3
 
    Unknown Artist -- Bicep - Glue.mp3
      ? BPM | ? | USB3 - Backup
+     E:\Music\Backups\Bicep - Glue.mp3
 ```
 
 - Show artist, title (or filename if no title), BPM, key, source label
 - `[RB]` badge if `in_rekordbox = 1`
 - `[3H/4C]` = 3 hot cues, 4 total cues
 - `[NO CUES]` if in rekordbox but zero cue points
+- Full file path on second line (platform-specific: Mac uses `/Volumes/...`, Windows uses drive letters)
+
+
+#### `query <sql>` or `query --query-file <path>`
+Run raw SQL SELECT queries against the database for custom analysis.
+
+```bash
+# Inline SQL
+dj-indexer query "SELECT DISTINCT source_label FROM tracks WHERE in_rekordbox=1"
+
+# From file (for multi-line queries)
+dj-indexer query --query-file ~/my_query.sql
+```
+
+Tabular output with aligned columns and row count. Helper functions available:
+- `DIRNAME(filepath)` — extract directory path (works cross-platform)
+- `REGEXP(pattern, column)` — regex matching (case-insensitive)
+
+Examples:
+```bash
+# Count tracks per folder
+dj-indexer query "SELECT DIRNAME(filepath), COUNT(*) FROM tracks GROUP BY DIRNAME(filepath) ORDER BY COUNT(*) DESC"
+
+# Find tracks with regex pattern in artist
+dj-indexer query "SELECT artist, title FROM tracks WHERE REGEXP('bicep|fisher', artist)"
+```
+
+Only SELECT statements allowed (queries that modify data are rejected).
+
+
+#### `analyze --folders [filters]`
+Pre-built analytics breakdowns without requiring SQL knowledge.
+
+**Options:**
+- `--folders` — show track counts grouped by folder path
+- `--in-rekordbox` — filter to rekordbox tracks only
+- `--not-in-rekordbox` — filter to non-rekordbox tracks only
+- `--source <label>` — filter by source label (e.g., "USB1")
+- `--genre <genre>` — filter by genre
+- `--format <format>` — filter by file format (e.g., ".mp3")
+- `--bpm-min <bpm>` — minimum BPM
+- `--bpm-max <bpm>` — maximum BPM
+- `--limit <n>` — max results (default: 100)
+
+Examples:
+```bash
+# All folders
+dj-indexer analyze --folders
+
+# Rekordbox tracks only
+dj-indexer analyze --folders --in-rekordbox
+
+# Specific source + BPM range
+dj-indexer analyze --folders --source "USB1" --bpm-min 120 --bpm-max 140
+
+# Multiple filters
+dj-indexer analyze --folders --genre Techno --bpm-min 125 --source "USB1"
+```
+
+Output shows folder path and track count:
+```
+Folder Analysis (47 unique folders):
+
+   /Volumes/USB1/Techno                       34 tracks
+   /Volumes/USB1/House                        28 tracks
+   /Volumes/USB1/Ambient                      12 tracks
+```
 
 
 #### `cues <query>`
