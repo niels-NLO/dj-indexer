@@ -188,92 +188,203 @@ uv run dj-indexer --db E:\dj_music_index.db export C:\Users\YourName\Downloads\t
 
 ## Search and Filtering
 
-### Free-Text Search
+The search command is your main tool for exploring your music collection. It supports free-text search, regex patterns, field-specific filters, and special modes.
+
+### Basic Syntax
 
 ```bash
-# Search across all fields (title, artist, album, filename, genre, etc.)
+# Basic free-text search
+uv run dj-indexer search "bicep"
+
+# With filters
+uv run dj-indexer search [query] [--filter1] [value1] [--filter2] [value2]
+
+# Multiple filters combine with AND
+uv run dj-indexer search --artist "bicep" --genre "techno" --bpm-min 120
+# Results: Bicep tracks that are techno AND >= 120 BPM
+```
+
+### Free-Text Search
+
+Free-text search looks across all fields: title, artist, album, filename, genre, remixer, label, comments.
+
+```bash
+# Search across all fields
 uv run dj-indexer search "bicep"
 
 # Case-insensitive, matches partials
-uv run dj-indexer search "deep"  # Matches "DeepDish", "Deeper", etc.
+uv run dj-indexer search "deep"  # Matches "DeepDish", "Deeper", Deepbass", etc.
+uv run dj-indexer search "drop"  # Matches titles, cue names, etc.
+
+# Multi-word search (partial match)
+uv run dj-indexer search "final cut"
 ```
 
-### Regex Search
+**Output:**
+```
+Search results for "bicep" (12 tracks):
+
+   Bicep -- Glue
+     129 BPM | 11B | USB1 [RB]  [2H/4C]
+
+   Bicep -- Atlas
+     132 BPM | 2A | USB1 [RB]  [3H/5C]
+
+   Unknown Artist -- bicep_remix.mp3
+     ? BPM | ? | USB2
+```
+
+### Regex Search (Broad)
+
+Use `--regex` (or `-r`) to search with Python regular expressions across all fields.
 
 ```bash
-# Broad regex across all fields
-uv run dj-indexer search --regex "bicep|objekt|mall.*grab"
+# Alternation: Bicep OR Objekt
+uv run dj-indexer search --regex "bicep|objekt"
 
-# Regex for artist only
-uv run dj-indexer search --re --artist "bicep|objekt"
+# Multiple artists with variations
+uv run dj-indexer search --regex "aphex.*twin|autechre|plaza"
 
-# Multiple conditions with regex
-uv run dj-indexer search --regex "remix" --in-rekordbox --bpm-min 120
+# Pattern matching
+uv run dj-indexer search --regex "^untitled|demo|sample"  # Starts with...
+uv run dj-indexer search --regex ".*remix$"  # Ends with remix
+
+# Case-insensitive is built-in
+uv run dj-indexer search --regex "DEEP|deep"  # Matches any case
+```
+
+**Regex Patterns:**
+```
+^pattern    # Starts with
+pattern$    # Ends with
+pat|tern    # Alternation (OR)
+pat.*tern   # Matches anything between
+[abc]       # Character class
+(pat)*      # Grouping and repetition
+```
+
+### Field-Scoped Regex (--re flag)
+
+Use `--re` to apply regex only to specific field filters. All regex field filters use the pattern directly (no `%` wildcard wrapping).
+
+```bash
+# Regex on artist field only
+uv run dj-indexer search --re --artist "bicep|objekt|mall"
+
+# Regex on title field
+uv run dj-indexer search --re --title "^drop|^build"
+
+# Regex on genre
+uv run dj-indexer search --re --genre "tech(no|house)"
+
+# Regex on filename
+uv run dj-indexer search --re --filename ".*demo.*\.mp3$"
+
+# Combine multiple field filters with regex
+uv run dj-indexer search --re --artist "bicep|objekt" --genre "techno"
+
+# Mix field filters with numeric/exact filters
+uv run dj-indexer search --re --artist "bicep.*" --bpm-min 120 --in-rekordbox
 ```
 
 ### Filter by Artist
 
 ```bash
-# LIKE search (partial match)
-uv run dj-indexer search --artist "Aphex"
+# LIKE search (partial match, case-insensitive)
+uv run dj-indexer search --artist "Aphex"  # Matches "Aphex Twin", "Aphexy", etc.
 
-# Regex search (exact patterns)
+# Regex for more precise patterns
 uv run dj-indexer search --re --artist "Aphex Twin|Autechre"
+uv run dj-indexer search --re --artist "^Lee.*"  # Artist names starting with Lee
 ```
 
 ### Filter by Title
 
 ```bash
+# Partial match
 uv run dj-indexer search --title "Strobe"
-uv run dj-indexer search --re --title "^Untitled|Demo"
+
+# Regex for exact patterns
+uv run dj-indexer search --re --title "^Untitled"  # Starts with Untitled
+uv run dj-indexer search --re --title "remix$"  # Ends with remix
+uv run dj-indexer search --re --title "part (1|2|3)"  # Part 1, Part 2, or Part 3
 ```
 
 ### Filter by Genre
 
 ```bash
-uv run dj-indexer search --genre "techno"
-uv run dj-indexer search --re --genre "tech(no|house)" --bpm-min 120
+# Partial match
+uv run dj-indexer search --genre "techno"  # Matches "Techno", "Techno House", etc.
+uv run dj-indexer search --genre "house"
+
+# Regex patterns
+uv run dj-indexer search --re --genre "tech(no|house)"  # Techno or Techhouse
+uv run dj-indexer search --re --genre "(electro|minimal|tech)"
 ```
 
 ### Filter by BPM Range
 
 ```bash
-# Between 120-130 BPM
-uv run dj-indexer search --bpm-min 120 --bpm-max 130
+# Between two values
+uv run dj-indexer search --bpm-min 120 --bpm-max 130  # 120-130 BPM tracks
 
-# Minimum BPM only
+# Minimum only (everything >= 128 BPM)
 uv run dj-indexer search --bpm-min 128
 
-# Maximum BPM only
-uv run dj-indexer search --bpm-max 140
+# Maximum only (everything <= 110 BPM)
+uv run dj-indexer search --bpm-max 110
+
+# DJ use case: Find high-energy tracks
+uv run dj-indexer search --bpm-min 128 --in-rekordbox
+
+# Find breakbeats/drum & bass
+uv run dj-indexer search --bpm-min 160
 ```
 
 ### Filter by Musical Key
 
 ```bash
+# Exact key
 uv run dj-indexer search --key "11B"
-uv run dj-indexer search --re --key "^11.*|^2A"
+uv run dj-indexer search --key "2A"
+
+# Key family (all A keys)
+uv run dj-indexer search --re --key ".*A$"
+
+# Camelot wheel compatible keys (for mixing)
+uv run dj-indexer search --re --key "11B|12A|1B"  # Same key group for mixing
+```
+
+### Filter by Filename
+
+```bash
+# Partial match in filename
+uv run dj-indexer search --filename "demo"
+
+# Regex on filename
+uv run dj-indexer search --re --filename "^test_.*\.mp3$"
 ```
 
 ### Filter by File Format
 
 ```bash
-# Only MP3 files
+# Single format
 uv run dj-indexer search --format mp3
-
-# Only FLAC or WAV
 uv run dj-indexer search --format flac
-uv run dj-indexer search --format wav
+
+# Format filtering use cases
+uv run dj-indexer search --format wav --in-rekordbox  # High-quality tracks in RB
 ```
 
-### Filter by Source
+### Filter by Source Label
 
 ```bash
-# Only from USB1
+# Exact source match
 uv run dj-indexer search --source "USB1"
-
-# Only from Rekordbox XML
 uv run dj-indexer search --source "rekordbox"
+
+# Partial match for sources
+uv run dj-indexer search --source "USB"  # Any USB drive
 ```
 
 ### Rekordbox Status Filters
@@ -282,54 +393,199 @@ uv run dj-indexer search --source "rekordbox"
 # Only tracks in Rekordbox
 uv run dj-indexer search --in-rekordbox
 
-# Only tracks NOT in Rekordbox
+# Only tracks NOT in Rekordbox (not yet imported)
 uv run dj-indexer search --not-in-rekordbox
 
-# Rekordbox tracks without cue points (need prep)
+# Rekordbox tracks without any cue points (need preparation)
 uv run dj-indexer search --no-cues
 
-# Tracks with duplicate filenames (on multiple drives)
+# Find duplicate filenames across sources (potential conflicts)
 uv run dj-indexer search --duplicates
 ```
 
-### Complex Queries (Multiple Filters)
+### Advanced: Complex Multi-Filter Queries
+
+Combine multiple filters with AND logic:
 
 ```bash
-# Techno tracks 125-130 BPM in Rekordbox with cues
-uv run dj-indexer search --genre techno --bpm-min 125 --bpm-max 130 --in-rekordbox
+# DJ set preparation: Techno tracks ready for mixing
+uv run dj-indexer search --genre techno --bpm-min 125 --bpm-max 135 --in-rekordbox
 
-# Dubstep tracks on USB3 not yet in Rekordbox
-uv run dj-indexer search --genre dubstep --source "USB3" --not-in-rekordbox
+# Find gaps: Dubstep not yet prepped
+uv run dj-indexer search --genre dubstep --not-in-rekordbox
 
-# Remixes between 120-140 BPM in Rekordbox
+# Remixes between 120-140 BPM in Rekordbox (with cues)
 uv run dj-indexer search --regex "remix" --bpm-min 120 --bpm-max 140 --in-rekordbox
 
-# Tracks by specific artists in key 2A
-uv run dj-indexer search --re --artist "bicep|objekt" --key "2A"
+# Tracks by specific artists in compatible keys
+uv run dj-indexer search --re --artist "bicep|objekt|tim" --key "2A"
+
+# High-energy unreleased tracks on USB3
+uv run dj-indexer search --source "USB3" --bpm-min 130 --not-in-rekordbox
+
+# All ambient tracks, sorted by source
+uv run dj-indexer search --genre ambient --limit 200
+
+# Tracks needing prep: In RB but no cues
+uv run dj-indexer search --in-rekordbox --no-cues
 ```
+
+### Output Format
+
+Each search result shows:
+
+```
+Artist -- Title
+  BPM | Key | Source [RB] [XH/YC]
+```
+
+**Badges explained:**
+- `[RB]` - Track is in Rekordbox
+- `[3H/5C]` - 3 hot cues (A-H), 5 total cues
+- `[NO CUES]` - Rekordbox track with no cue points (needs prep)
+- `?` - Unknown value (not scanned/imported)
 
 ### Limit Results
 
 ```bash
-# Limit to 50 results (default is 100)
+# Default is 100 results
+uv run dj-indexer search "techno"
+
+# Limit to 50 results
 uv run dj-indexer search --limit 50 "techno"
 
 # Get first 10 results
 uv run dj-indexer search "deep" --limit 10
+
+# Use with filters
+uv run dj-indexer search --bpm-min 128 --limit 30
+```
+
+### Search Best Practices
+
+**Performance:**
+```bash
+# Fast: Using exact/numeric filters first
+uv run dj-indexer search --bpm-min 120 --bpm-max 130 --limit 50
+
+# Slower: Broad regex with many results
+uv run dj-indexer search --regex ".*"  # Don't do this!
+```
+
+**Technique: Narrow down before searching**
+```bash
+# First, find the genre
+uv run dj-indexer search --genre "techno"
+
+# Then add BPM range
+uv run dj-indexer search --genre "techno" --bpm-min 120 --bpm-max 130
+
+# Then check Rekordbox status
+uv run dj-indexer search --genre "techno" --bpm-min 120 --bpm-max 130 --in-rekordbox
+```
+
+**Regex: Be specific**
+```bash
+# Good: Specific alternation
+uv run dj-indexer search --re --artist "bicep|objekt|plaza"
+
+# Avoid: Overly broad patterns
+uv run dj-indexer search --regex ".*"
+```
+
+### Short Flags for Rapid Searching
+
+Use short flags to type faster:
+
+```bash
+# Long form
+uv run dj-indexer search "techno" --artist "bicep" --genre "techno" --bpm-min 120
+
+# Short form
+uv run dj-indexer search "techno" -a "bicep" -g "techno" --bpm-min 120
+
+# Available short flags:
+# -r = --regex
+# -a = --artist
+# -t = --title
+# -g = --genre
+# -k = --key
+# -s = --source
+```
+
+### Search Reference Table
+
+| Use Case | Command | Example |
+|----------|---------|---------|
+| **Basic Search** | `search <query>` | `search "bicep"` |
+| **Regex (Broad)** | `search --regex <pattern>` | `search --regex "bicep\|objekt"` |
+| **Regex (Field)** | `search --re --field <pattern>` | `search --re --artist "bicep\|objekt"` |
+| **Artist Filter** | `search --artist <name>` | `search --artist "bicep"` |
+| **Title Filter** | `search --title <name>` | `search --title "glue"` |
+| **Genre Filter** | `search --genre <name>` | `search --genre "techno"` |
+| **Key Filter** | `search --key <key>` | `search --key "2A"` |
+| **BPM Min** | `search --bpm-min <bpm>` | `search --bpm-min 120` |
+| **BPM Max** | `search --bpm-max <bpm>` | `search --bpm-max 130` |
+| **BPM Range** | `search --bpm-min X --bpm-max Y` | `search --bpm-min 120 --bpm-max 130` |
+| **Format Filter** | `search --format <fmt>` | `search --format mp3` |
+| **Source Filter** | `search --source <label>` | `search --source "USB1"` |
+| **In Rekordbox** | `search --in-rekordbox` | `search --in-rekordbox` |
+| **Not In RB** | `search --not-in-rekordbox` | `search --not-in-rekordbox` |
+| **No Cues** | `search --no-cues` | `search --no-cues` |
+| **Duplicates** | `search --duplicates` | `search --duplicates` |
+| **Playlists List** | `search --playlists` | `search --playlists` |
+| **Playlist Filter** | `search --playlist <name>` | `search --playlist "Techno"` |
+| **Limit Results** | `search --limit <n>` | `search --limit 50` |
+| **Show Cues** | `cues <query>` | `cues "bicep"` |
+
+### Common Filter Combinations
+
+```bash
+# Tech house tracks (125-128 BPM)
+uv run dj-indexer search --genre "house" --bpm-min 125 --bpm-max 128
+
+# All remixes in Rekordbox
+uv run dj-indexer search --regex "remix" --in-rekordbox
+
+# Artist tracks on USB2 not in Rekordbox
+uv run dj-indexer search --artist "bicep" --source "USB2" --not-in-rekordbox
+
+# Prepared tracks in key 2A (120-130 BPM)
+uv run dj-indexer search --key "2A" --bpm-min 120 --bpm-max 130 --in-rekordbox
+
+# Ambient tracks that need cues prepared
+uv run dj-indexer search --genre "ambient" --in-rekordbox --no-cues
+
+# All FLAC files in Rekordbox
+uv run dj-indexer search --format flac --in-rekordbox
+
+# Recent demos from USB3
+uv run dj-indexer search --regex "demo" --source "USB3"
+
+# High-energy prepared tracks
+uv run dj-indexer search --bpm-min 128 --in-rekordbox
 ```
 
 ---
 
 ## Cue Points and Playlists
 
-### Show Cue Points for Tracks
+### Show Detailed Cue Points
+
+The `cues` command shows all cue points for tracks matching a search query, with exact positions and names.
 
 ```bash
 # Find cue points for tracks matching "strobe"
 uv run dj-indexer cues "strobe"
 
-# Show detailed cue info
+# Show detailed cue info for an artist
 uv run dj-indexer cues "bicep"
+
+# Search by partial title
+uv run dj-indexer cues "drop"
+
+# Cues for specific genre (free-text search)
+uv run dj-indexer cues "ambient"
 ```
 
 **Output Example:**
@@ -337,27 +593,279 @@ uv run dj-indexer cues "bicep"
 Bicep — Glue (4:30)
    129 BPM | 2A | USB1
    Cue points (6):
-     [0:05.10] Hot Cue A: Intro
-     [1:30.50] Hot Cue B: Build
-     [2:45.00] Hot Cue C: Drop
-     [3:15.20] Memory Cue: Breakdown
-     [4:10.00] Hot Cue D: Outro
+     [0:05] Hot Cue A: Intro
+     [1:30] Hot Cue B: Build
+     [2:45] Hot Cue C: Drop
+     [3:15] Memory Cue: Breakdown
+     [4:00] Hot Cue D: Outro
+     [4:20] Hot Cue E: Outro build
+
+Bicep — Atlas (5:15)
+   132 BPM | 11B | USB1
+   Cue points (5):
+     [0:02] Memory Cue
+     [0:30] Hot Cue A: Intro
+     [2:15] Hot Cue B: Build
+     [3:45] Hot Cue C: Drop
+     [4:50] Hot Cue D: Outro
+```
+
+**Cue Types:**
+- **Hot Cues** (A-H): Quick access cues, 8 available per track
+- **Memory Cue**: Unnamed marker, typically at track start
+
+### Inspect Track Preparation
+
+```bash
+# See all cues for prepared tracks
+uv run dj-indexer cues "bicep"
+
+# Identify which tracks need cue points
+uv run dj-indexer search --no-cues
+
+# Show cues for all high-energy tracks
+uv run dj-indexer cues "techno" | grep "128\|130\|132"  # Manually filter by BPM
 ```
 
 ### List All Playlists
 
 ```bash
+# Show all playlists and folder structure
 uv run dj-indexer search --playlists
+```
+
+**Output:**
+```
+Playlists (23):
+
+   root/DJ Sets/2024/Spring
+      12 tracks
+
+   root/DJ Sets/2024/Summer
+      18 tracks
+
+   root/Genre/Techno
+      245 tracks
+
+   root/Genre/House
+      167 tracks
+
+   root/Genre/Ambient
+      89 tracks
+
+   ... (more playlists)
 ```
 
 ### Filter by Playlist
 
 ```bash
-# Tracks in "Techno" playlist
+# Show all tracks in a playlist
 uv run dj-indexer search --playlist "Techno"
 
-# Regex on playlist name
-uv run dj-indexer search --re --playlist "techno|house"
+# Partial playlist name match
+uv run dj-indexer search --playlist "Genre"  # Matches all playlists containing "Genre"
+
+# Regex on playlist name/path
+uv run dj-indexer search --re --playlist "Techno|House"
+
+# Find all playlists from 2024
+uv run dj-indexer search --re --playlist "2024"
+
+# Look inside nested playlist folders
+uv run dj-indexer search --re --playlist "DJ Sets.*Spring"
+```
+
+**Output:**
+```
+Playlist: root/Genre/Techno (245 tracks):
+
+   Bicep -- Glue
+     129 BPM | 2A | USB1 [RB]  [2H/4C]
+
+   Objekt -- Gooey
+     127 BPM | 1A | USB1 [RB]  [1H/3C]
+
+   ... (all tracks in playlist)
+```
+
+### Playlist Use Cases
+
+```bash
+# Find DJ sets by date
+uv run dj-indexer search --re --playlist "2024.*(Jan|Feb|Mar)"
+
+# List all genre playlists
+uv run dj-indexer search --re --playlist "Genre/.*"
+
+# Show specific genre from playlists
+uv run dj-indexer search --playlist "Techno"
+
+# Find all collaborative playlists
+uv run dj-indexer search --re --playlist "Collab|feat"
+```
+
+---
+
+## Real-World DJ Scenarios
+
+Practical search workflows for common DJ situations.
+
+### Preparing for a DJ Set
+
+**Find high-energy tracks in your key:**
+```bash
+# 125-135 BPM techno in key 2A
+uv run dj-indexer search --genre techno --bpm-min 125 --bpm-max 135 --key "2A" --in-rekordbox
+```
+
+**Check track readiness (all cues set):**
+```bash
+# Tracks without cues (these need prep)
+uv run dj-indexer search --no-cues
+
+# View detailed cue points for your set
+uv run dj-indexer cues "my_set_playlist"  # After adding tracks to a playlist
+```
+
+**Build transition chains (compatible keys + BPM):**
+```bash
+# Camelot wheel transitions from 2A (same harmonic family)
+uv run dj-indexer search --re --key "11B|12A|1B" --bpm-min 120 --bpm-max 130
+
+# Follow one track to next (compatible key, similar BPM)
+uv run dj-indexer search --key "2A" --bpm-min 128 --bpm-max 134 --in-rekordbox
+```
+
+### Finding Specific Tracks
+
+**Track stuck in your head:**
+```bash
+# Partial artist/title match
+uv run dj-indexer search --artist "Aphex" --title "window"
+
+# Wildcard search
+uv run dj-indexer search --regex "aphex.*window|window.*aphex"
+```
+
+**Remixes of a track:**
+```bash
+# All remixes
+uv run dj-indexer search --regex "remix"
+
+# Remixes by specific artist
+uv run dj-indexer search --regex "bicep.*remix|remix.*bicep"
+
+# Original vs. remixes of a track
+uv run dj-indexer search --title "track_name"  # Shows all versions
+```
+
+**Find unreleased/demo tracks:**
+```bash
+# Demos and unreleased
+uv run dj-indexer search --regex "demo|unreleased|draft|wip"
+
+# Demos on USB3 backup
+uv run dj-indexer search --regex "demo" --source "USB3"
+```
+
+### Library Analysis
+
+**Check collection coverage:**
+```bash
+# All tracks imported to Rekordbox
+uv run dj-indexer search --in-rekordbox
+
+# Tracks NOT yet in Rekordbox (gap analysis)
+uv run dj-indexer search --not-in-rekordbox
+
+# Tracks with cues prepared
+uv run dj-indexer search --no-cues  # Returns tracks WITHOUT cues (prep needed)
+```
+
+**Find duplicate files across drives:**
+```bash
+# Identify duplicates (same filename on different drives)
+uv run dj-indexer search --duplicates
+
+# Find specific duplicate
+uv run dj-indexer search --duplicates  # Then manually inspect for "my_track.mp3"
+```
+
+**Library statistics:**
+```bash
+# Overall stats
+uv run dj-indexer stats
+
+# Breakdown by source
+uv run dj-indexer search --source "USB1"
+uv run dj-indexer search --source "USB2"
+uv run dj-indexer search --source "rekordbox"
+```
+
+### Genre/Energy Discovery
+
+**Find new music energy levels:**
+```bash
+# Explore different BPM ranges
+uv run dj-indexer search --bpm-min 100 --bpm-max 110     # Deep/Tech house
+uv run dj-indexer search --bpm-min 120 --bpm-max 130     # Main room techno
+uv run dj-indexer search --bpm-min 140 --bpm-max 160     # Peak time / Hard dance
+uv run dj-indexer search --bpm-min 170                   # Drum & Bass
+```
+
+**Explore genre relationships:**
+```bash
+# Minimal techno with ambient touches
+uv run dj-indexer search --re --genre "minimal|ambient" --bpm-min 100 --bpm-max 110
+
+# Experimental electronica
+uv run dj-indexer search --re --genre "experimental|ambient|glitch"
+
+# Crossover tracks (techno + house)
+uv run dj-indexer search --re --genre "tech.*house|house.*tech"
+```
+
+### Building Playlists
+
+**Explore playlist contents:**
+```bash
+# What's in the Techno playlist?
+uv run dj-indexer search --playlist "Techno"
+
+# Tracks added to DJ set folders
+uv run dj-indexer search --re --playlist "DJ Sets"
+
+# All playlists with "2024" (recent sets)
+uv run dj-indexer search --re --playlist "2024"
+```
+
+**Find gaps in playlists:**
+```bash
+# Techno tracks NOT in any playlist
+uv run dj-indexer search --genre "techno" --not-in-rekordbox
+```
+
+### Quality Control
+
+**Check for metadata issues:**
+```bash
+# Tracks with missing artist info
+uv run dj-indexer search "Unknown Artist"
+
+# Tracks with generic filename (likely metadata issues)
+uv run dj-indexer search --re --filename "track.*\d+\.mp3"
+
+# Confirm bitrate/quality (export to CSV and inspect)
+uv run dj-indexer export quality_check.csv
+```
+
+**Verify imported tracks:**
+```bash
+# All tracks in Rekordbox (and therefore prepared)
+uv run dj-indexer search --in-rekordbox
+
+# Check a specific artist is fully imported
+uv run dj-indexer search --artist "bicep" --in-rekordbox
 ```
 
 ---
