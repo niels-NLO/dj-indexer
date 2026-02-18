@@ -9,6 +9,7 @@ Complete examples for all commands and workflows.
 - [Importing Rekordbox Collections](#importing-rekordbox-collections)
 - [Cross-Platform Workflow (Mac → Windows)](#cross-platform-workflow-mac--windows)
 - [Search and Filtering](#search-and-filtering)
+- [Query and Analysis](#query-and-analysis)
 - [Cue Points and Playlists](#cue-points-and-playlists)
 - [Exporting Data](#exporting-data)
 - [Database Management](#database-management)
@@ -226,12 +227,15 @@ Search results for "bicep" (12 tracks):
 
    Bicep -- Glue
      129 BPM | 11B | USB1 [RB]  [2H/4C]
+     /Volumes/USB1/Music/Bicep/Glue.mp3
 
    Bicep -- Atlas
      132 BPM | 2A | USB1 [RB]  [3H/5C]
+     /Volumes/USB1/Music/Bicep/Atlas.mp3
 
    Unknown Artist -- bicep_remix.mp3
      ? BPM | ? | USB2
+     E:\Music\Backups\bicep_remix.mp3
 ```
 
 ### Regex Search (Broad)
@@ -437,6 +441,7 @@ Each search result shows:
 ```
 Artist -- Title
   BPM | Key | Source [RB] [XH/YC]
+  /full/path/to/file.mp3
 ```
 
 **Badges explained:**
@@ -444,6 +449,8 @@ Artist -- Title
 - `[3H/5C]` - 3 hot cues (A-H), 5 total cues
 - `[NO CUES]` - Rekordbox track with no cue points (needs prep)
 - `?` - Unknown value (not scanned/imported)
+
+The full file path appears on the second line (platform-specific: Mac uses `/Volumes/...`, Windows uses drive letters like `E:\...`)
 
 ### Limit Results
 
@@ -565,6 +572,145 @@ uv run dj-indexer search --regex "demo" --source "USB3"
 # High-energy prepared tracks
 uv run dj-indexer search --bpm-min 128 --in-rekordbox
 ```
+
+---
+
+## Query and Analysis
+
+### Raw SQL Queries
+
+The `query` command lets you run custom SQL SELECT statements for advanced analysis.
+
+#### Inline SQL
+
+```bash
+# Count tracks per source
+uv run dj-indexer query "SELECT source_label, COUNT(*) as count FROM tracks GROUP BY source_label"
+
+# Find distinct artist names
+uv run dj-indexer query "SELECT DISTINCT artist FROM tracks WHERE artist IS NOT NULL ORDER BY artist"
+
+# Tracks without metadata
+uv run dj-indexer query "SELECT title, artist, bpm FROM tracks WHERE title IS NULL OR bpm IS NULL"
+
+# BPM statistics
+uv run dj-indexer query "SELECT MIN(bpm), MAX(bpm), AVG(bpm) FROM tracks WHERE bpm > 0"
+```
+
+#### Query from File
+
+For multi-line queries, save to a file and use `--query-file`:
+
+```bash
+# Create a query file
+cat > my_analysis.sql << 'EOF'
+SELECT
+    source_label,
+    COUNT(*) as total_tracks,
+    COUNT(CASE WHEN in_rekordbox=1 THEN 1 END) as in_rb,
+    COUNT(DISTINCT genre) as genres
+FROM tracks
+GROUP BY source_label
+ORDER BY total_tracks DESC
+EOF
+
+# Run the query
+uv run dj-indexer query --query-file my_analysis.sql
+```
+
+#### Using Helper Functions
+
+Two helper functions are registered for advanced queries:
+
+**DIRNAME(filepath)** - Extract the directory path from a full filepath:
+```bash
+# Count tracks per folder
+uv run dj-indexer query "SELECT DIRNAME(filepath) as folder, COUNT(*) FROM tracks GROUP BY DIRNAME(filepath) ORDER BY COUNT(*) DESC"
+
+# Find folders with many Rekordbox tracks
+uv run dj-indexer query "SELECT DIRNAME(filepath), COUNT(*) as n FROM tracks WHERE in_rekordbox=1 GROUP BY DIRNAME(filepath) HAVING COUNT(*) > 10"
+```
+
+**REGEXP(pattern, column)** - Regex pattern matching (case-insensitive):
+```bash
+# Remixes by any artist
+uv run dj-indexer query "SELECT artist, title FROM tracks WHERE REGEXP('remix', title)"
+
+# Specific artists using regex
+uv run dj-indexer query "SELECT * FROM tracks WHERE REGEXP('^(bicep|objekt|autechre)$', artist) AND in_rekordbox=1"
+
+# Tracks with numbers in title
+uv run dj-indexer query "SELECT title FROM tracks WHERE REGEXP('[0-9]', title)"
+```
+
+#### Example Queries
+
+```bash
+# Folders with most tracks
+uv run dj-indexer query "SELECT DIRNAME(filepath) as folder, COUNT(*) as tracks, COUNT(CASE WHEN in_rekordbox=1 THEN 1 END) as in_rb FROM tracks GROUP BY folder ORDER BY tracks DESC LIMIT 20"
+
+# Average BPM by genre
+uv run dj-indexer query "SELECT genre, ROUND(AVG(bpm), 1) as avg_bpm, COUNT(*) as count FROM tracks WHERE genre IS NOT NULL AND bpm > 0 GROUP BY genre ORDER BY avg_bpm DESC"
+
+# Tracks needing prep (in RB, no cues)
+uv run dj-indexer query "SELECT artist, title FROM tracks WHERE in_rekordbox=1 AND id NOT IN (SELECT DISTINCT track_id FROM cue_points) ORDER BY artist, title"
+
+# File format breakdown
+uv run dj-indexer query "SELECT file_format, COUNT(*) as count FROM tracks WHERE file_format IS NOT NULL GROUP BY file_format ORDER BY count DESC"
+
+# Duplicate filenames across sources
+uv run dj-indexer query "SELECT filename_lower, COUNT(*) as copies, GROUP_CONCAT(source_label) as sources FROM tracks GROUP BY filename_lower HAVING COUNT(*) > 1"
+```
+
+### Collection Analytics
+
+The `analyze` command provides pre-built analytics breakdowns without requiring SQL knowledge.
+
+#### Analyze by Folder
+
+Show track counts grouped by folder:
+
+```bash
+# All folders
+uv run dj-indexer analyze --folders
+
+# Only Rekordbox tracks
+uv run dj-indexer analyze --folders --in-rekordbox
+
+# Specific source
+uv run dj-indexer analyze --folders --source "USB1"
+
+# By genre
+uv run dj-indexer analyze --folders --genre "Techno"
+
+# BPM range
+uv run dj-indexer analyze --folders --bpm-min 120 --bpm-max 140
+
+# Combined filters (all must match)
+uv run dj-indexer analyze --folders --source "USB1" --genre "Techno" --bpm-min 120 --in-rekordbox
+```
+
+**Output Example:**
+```
+Folder Analysis (47 unique folders) [in rekordbox | source=USB1 | genre=Techno | bpm=120.0]:
+
+   /Volumes/USB1/Techno/Peak Time              34 tracks
+   /Volumes/USB1/Techno/Dark Techno            28 tracks
+   /Volumes/USB1/Techno/Minimal                15 tracks
+   /Volumes/USB1/House/Tech House              12 tracks
+```
+
+#### Analyze Options
+
+Available filters for `analyze --folders`:
+- `--in-rekordbox` — only tracks in rekordbox
+- `--not-in-rekordbox` — only tracks NOT in rekordbox
+- `--source <label>` — specific USB/source (e.g., "USB1")
+- `--genre <name>` — filter by genre
+- `--format <ext>` — filter by file format (e.g., ".mp3")
+- `--bpm-min <bpm>` — minimum BPM
+- `--bpm-max <bpm>` — maximum BPM
+- `--limit <n>` — max folders to show (default: 100)
 
 ---
 

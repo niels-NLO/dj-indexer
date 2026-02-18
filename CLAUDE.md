@@ -10,7 +10,15 @@ Support a workflow where I develop the code on a windows machine using claude ca
 Once I have updated code, commit and push to remote. I will then pull from remote on my mac and run the code.
 When something is not working on the mac after testing, I will create an issue on the repository. I will then ask to look at the open issues.
 Try to resolve the issues and do a new commit and push. I will then test again on mac.
-I will work on main only, mostly from my windows computer. 
+I will work on main only, mostly from my windows computer.
+
+### Documentation Sync
+
+When implementing new features or changing command behavior, update both:
+1. **CLAUDE.md** — Update the CLI specification and command descriptions in this file
+2. **docs/usage-examples.md** — Add practical examples and usage patterns for end users
+
+This keeps the specification and examples in sync with actual implementation.
 
 ## Cross-Platform Workflow
 
