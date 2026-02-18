@@ -259,7 +259,7 @@ class TestFieldFilters:
         rows = cursor.fetchall()
 
         assert len(rows) == 2
-        assert all(row[6] == "USB2" for row in rows)
+        assert all(row[7] == "USB2" for row in rows)
 
 
 class TestBPMFilters:
@@ -281,7 +281,7 @@ class TestBPMFilters:
         rows = cursor.fetchall()
 
         assert len(rows) == 4
-        assert all(row[4] >= 120.0 for row in rows)
+        assert all(row[5] >= 120.0 for row in rows)
 
     def test_bpm_maximum(self, populated_db):
         """Filter by maximum BPM."""
@@ -299,7 +299,7 @@ class TestBPMFilters:
         rows = cursor.fetchall()
 
         assert len(rows) == 2
-        assert all(row[4] <= 115.0 for row in rows)
+        assert all(row[5] <= 115.0 for row in rows)
 
     def test_bpm_range(self, populated_db):
         """Filter by BPM range."""
@@ -317,7 +317,7 @@ class TestBPMFilters:
         rows = cursor.fetchall()
 
         assert len(rows) == 3
-        assert all(125.0 <= row[4] <= 130.0 for row in rows)
+        assert all(125.0 <= row[5] <= 130.0 for row in rows)
 
 
 class TestCombinedFilters:
@@ -359,8 +359,8 @@ class TestCombinedFilters:
 
         # 3 tracks match: track1 (128, Techno), track2 (129, Techno), duplicate (130, Techno)
         assert len(rows) == 3
-        # Column order: id, artist, title, filename, bpm, musical_key, source_label, ...
-        assert all(row[4] >= 125.0 for row in rows)  # Check BPM
+        # Column order: id, artist, title, filename, filepath, bpm, musical_key, source_label, ...
+        assert all(row[5] >= 125.0 for row in rows)  # Check BPM
 
     def test_artist_source_and_bpm(self, populated_db):
         """Combine artist, source, and BPM filters."""
@@ -379,8 +379,8 @@ class TestCombinedFilters:
 
         assert len(rows) == 1
         assert rows[0][1] == "Jon Hopkins"
-        assert rows[0][6] == "External"
-        assert rows[0][4] <= 120.0
+        assert rows[0][7] == "External"
+        assert rows[0][5] <= 120.0
 
 
 class TestRekordboxFilters:
@@ -402,7 +402,7 @@ class TestRekordboxFilters:
         rows = cursor.fetchall()
 
         assert len(rows) == 6
-        assert all(row[7] == 1 for row in rows)  # in_rekordbox column
+        assert all(row[8] == 1 for row in rows)  # in_rekordbox column
 
 
 class TestCueQueries:
@@ -479,7 +479,7 @@ class TestDisplayFormatting:
         cursor = populated_db.cursor()
         cursor.execute("""
             SELECT
-                t.id, t.artist, t.title, t.filename, t.bpm, t.musical_key,
+                t.id, t.artist, t.title, t.filename, t.filepath, t.bpm, t.musical_key,
                 t.source_label, t.in_rekordbox,
                 COUNT(CASE WHEN cp.cue_type LIKE 'hot_cue_%' THEN 1 END) as num_hot_cues,
                 COUNT(cp.id) as num_cues
@@ -506,7 +506,7 @@ class TestDisplayFormatting:
         cursor = populated_db.cursor()
         cursor.execute("""
             SELECT
-                t.id, t.artist, t.title, t.filename, t.bpm, t.musical_key,
+                t.id, t.artist, t.title, t.filename, t.filepath, t.bpm, t.musical_key,
                 t.source_label, t.in_rekordbox,
                 COUNT(CASE WHEN cp.cue_type LIKE 'hot_cue_%' THEN 1 END) as num_hot_cues,
                 COUNT(cp.id) as num_cues
@@ -530,7 +530,7 @@ class TestDisplayFormatting:
         cursor = populated_db.cursor()
         cursor.execute("""
             SELECT
-                t.id, t.artist, t.title, t.filename, t.bpm, t.musical_key,
+                t.id, t.artist, t.title, t.filename, t.filepath, t.bpm, t.musical_key,
                 t.source_label, t.in_rekordbox,
                 COUNT(CASE WHEN cp.cue_type LIKE 'hot_cue_%' THEN 1 END) as num_hot_cues,
                 COUNT(cp.id) as num_cues

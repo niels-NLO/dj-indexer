@@ -22,8 +22,8 @@ def print_results(rows: List[Tuple[Any, ...]], header: str = "Search results"):
     print(f"\n{header} ({count} tracks):\n")
 
     for row in rows:
-        # Row format: (id, artist, title, filename, bpm, musical_key, source_label, in_rekordbox, num_hot_cues, num_cues)
-        artist, title, filename, bpm, musical_key, source_label, in_rekordbox, num_hot_cues, num_cues = row[1:10]
+        # Row format: (id, artist, title, filename, filepath, bpm, musical_key, source_label, in_rekordbox, num_hot_cues, num_cues)
+        artist, title, filename, filepath, bpm, musical_key, source_label, in_rekordbox, num_hot_cues, num_cues = row[1:11]
 
         # Build display title
         display_title = title if title else filename
@@ -50,7 +50,8 @@ def print_results(rows: List[Tuple[Any, ...]], header: str = "Search results"):
             elif num_hot_cues is not None:
                 badges += f"  [{num_hot_cues}H/{num_cues}C]"
 
-        print(f"     {bpm_str} BPM | {key_str} | {source_label}{badges}\n")
+        print(f"     {bpm_str} BPM | {key_str} | {source_label}{badges}")
+        print(f"     {filepath}\n")
 
 
 def print_cue_details(track: Tuple[Any, ...], cues: List[Tuple[Any, ...]]):

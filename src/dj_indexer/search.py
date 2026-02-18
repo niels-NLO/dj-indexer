@@ -231,7 +231,7 @@ def _build_search_query(args: argparse.Namespace):
     # Build full query
     sql = f"""
         SELECT
-            t.id, t.artist, t.title, t.filename, t.bpm, t.musical_key,
+            t.id, t.artist, t.title, t.filename, t.filepath, t.bpm, t.musical_key,
             t.source_label, t.in_rekordbox,
             COUNT(CASE WHEN cp.cue_type LIKE 'hot_cue_%' THEN 1 END) as num_hot_cues,
             COUNT(cp.id) as num_cues
@@ -295,7 +295,7 @@ def _show_no_cues(cursor, limit):
     """Show rekordbox tracks without cue points."""
     cursor.execute(f"""
         SELECT
-            t.id, t.artist, t.title, t.filename, t.bpm, t.musical_key,
+            t.id, t.artist, t.title, t.filename, t.filepath, t.bpm, t.musical_key,
             t.source_label, t.in_rekordbox,
             COUNT(CASE WHEN cp.cue_type LIKE 'hot_cue_%' THEN 1 END) as num_hot_cues,
             COUNT(cp.id) as num_cues
@@ -353,7 +353,7 @@ def _search_playlist(cursor, args, display_module):
 
         cursor.execute(f"""
             SELECT
-                t.id, t.artist, t.title, t.filename, t.bpm, t.musical_key,
+                t.id, t.artist, t.title, t.filename, t.filepath, t.bpm, t.musical_key,
                 t.source_label, t.in_rekordbox,
                 COUNT(CASE WHEN cp.cue_type LIKE 'hot_cue_%' THEN 1 END) as num_hot_cues,
                 COUNT(cp.id) as num_cues,
@@ -369,5 +369,5 @@ def _search_playlist(cursor, args, display_module):
         rows = cursor.fetchall()
 
         if rows:
-            row_list = [tuple(row[:10]) for row in rows]  # Remove position from display
+            row_list = [tuple(row[:11]) for row in rows]  # Remove position from display
             display_module.print_results(row_list, f"Playlist: {playlist_path}")
