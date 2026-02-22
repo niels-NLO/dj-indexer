@@ -3,8 +3,9 @@
 import sqlite3
 import argparse
 import re
+from pathlib import Path
 
-from . import display
+from . import display, export_results
 
 
 def search_tracks(conn: sqlite3.Connection, args: argparse.Namespace):
@@ -79,6 +80,14 @@ def search_tracks(conn: sqlite3.Connection, args: argparse.Namespace):
     # Convert to list of tuples for display function
     row_list = [tuple(row) for row in rows]
     display.print_results(row_list, header)
+
+    # Handle CSV export if requested
+    if args.export_csv:
+        column_names = [
+            'id', 'artist', 'title', 'filename', 'filepath', 'bpm',
+            'musical_key', 'source_label', 'in_rekordbox', 'num_hot_cues', 'num_cues'
+        ]
+        _export_search_results(rows, column_names, args)
 
 
 def show_cues(conn: sqlite3.Connection, query: str):
@@ -371,3 +380,33 @@ def _search_playlist(cursor, args, display_module):
         if rows:
             row_list = [tuple(row[:11]) for row in rows]  # Remove position from display
             display_module.print_results(row_list, f"Playlist: {playlist_path}")
+
+
+def _export_search_results(rows, column_names, args):
+    """Export search results to CSV with optional path conversion."""
+    # Parse volume mappings from format: ["USB1=E", "USB2=F"]
+    volume_mappings = None
+    if args.volume_map:
+        volume_mappings = {}
+        for mapping in args.volume_map:
+            if '=' in mapping:
+                volume_name, drive = mapping.split('=', 1)
+                volume_mappings[volume_name.strip()] = drive.strip()
+
+    # Parse path conversion direction
+    path_conversion = None
+    if args.path_conversion:
+        if args.path_conversion == 'mac-to-windows':
+            path_conversion = {'from_platform': 'mac', 'to_platform': 'windows'}
+        elif args.path_conversion == 'windows-to-mac':
+            path_conversion = {'from_platform': 'windows', 'to_platform': 'mac'}
+
+    # Export to CSV
+    export_results.export_to_csv(
+        rows=rows,
+        column_names=column_names,
+        output_path=Path(args.export_csv),
+        selected_columns=args.columns,
+        path_conversion=path_conversion,
+        volume_mappings=volume_mappings
+    )

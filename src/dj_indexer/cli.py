@@ -134,7 +134,7 @@ def main():
                 print("\nError: provide SQL statement or --query-file\n")
                 return
             try:
-                query.run_query(conn, sql_text)
+                query.run_query(conn, sql_text, export_args=args)
             except ValueError as e:
                 print(f"\nError: {e}\n")
         elif args.command == "analyze":
