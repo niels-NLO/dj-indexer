@@ -269,7 +269,7 @@ pat.*tern   # Matches anything between
 
 ### Field-Scoped Regex (--re flag)
 
-Use `--re` to apply regex only to specific field filters. All regex field filters use the pattern directly (no `%` wildcard wrapping).
+**IMPORTANT:** `--re` is a **global modifier**. When `--re` is present, **ALL** text field filters switch to regex mode. The position of `--re` on the command line doesn't matter.
 
 ```bash
 # Regex on artist field only
@@ -284,12 +284,22 @@ uv run dj-indexer search --re --genre "tech(no|house)"
 # Regex on filename
 uv run dj-indexer search --re --filename ".*demo.*\.mp3$"
 
-# Combine multiple field filters with regex
+# Combine multiple field filters with regex (all use regex because --re is present)
 uv run dj-indexer search --re --artist "bicep|objekt" --genre "techno"
 
-# Mix field filters with numeric/exact filters
-uv run dj-indexer search --re --artist "bicep.*" --bpm-min 120 --in-rekordbox
+# These are all equivalent - position of --re doesn't matter
+uv run dj-indexer search --re --artist "bicep|objekt" --genre "techno"
+uv run dj-indexer search --artist "bicep|objekt" --re --genre "techno"
+uv run dj-indexer search --artist "bicep|objekt" --genre "techno" --re
+
+# Mix regex fields with non-regex filters
+uv run dj-indexer search --re --artist "bicep.*" --source "USB1" --bpm-min 120 --in-rekordbox
+# Result: artist uses regex, source/bpm use their normal matching (LIKE/numeric)
 ```
+
+**Key Differences:**
+- `--regex`: Broad regex across ALL fields (don't use with specific field filters)
+- `--re`: Enables regex mode for text field filters (use with `--artist`, `--title`, etc.)
 
 ### Filter by Artist
 

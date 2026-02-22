@@ -240,30 +240,43 @@ Flexible search with multiple filter modes:
 **All filters combine with AND.**
 
 ##### The `--re` flag (regex mode for field filters):
-When `--re` is present, all text field filters (`--artist`, `--title`, `--filename`, `--genre`, `--key`, `--playlist`) switch from LIKE to Python regex matching. This lets you scope regex to specific fields.
+
+**IMPORTANT:** `--re` is a **global modifier**. When `--re` is present, **ALL** text field filters (`--artist`, `--title`, `--filename`, `--genre`, `--key`, `--playlist`) switch from LIKE to Python regex matching. The position of `--re` on the command line doesn't matter — it affects all field-specific filters used in that search.
+
+**Difference from `--regex`:**
+- `--regex` / `-r`: Broad regex search across ALL fields at once
+- `--re`: Enables regex mode for specific field filters (but if present, ALL field filters use regex)
 
 Examples:
 ```bash
-# Regex scoped to artist field only
+# Regex on artist field only (use --re once to enable regex mode for all fields)
 dj-indexer search --re --artist ".*jay.*z.*"
 
-# Regex on artist + must be in rekordbox
-dj-indexer search --re --artist "bicep|objekt" --in-rekordbox
+# Regex on artist + genre (both use regex because --re is present)
+dj-indexer search --re --artist "bicep|objekt" --genre "tech(no|house)"
 
-# Regex on playlist name
-dj-indexer search --re --playlist "techno|hard.*house"
+# All these are equivalent - position of --re doesn't matter
+dj-indexer search --re --artist "bicep|objekt" --genre "techno"
+dj-indexer search --artist "bicep|objekt" --re --genre "techno"
+dj-indexer search --artist "bicep|objekt" --genre "techno" --re
 
-# Regex on genre + BPM range (BPM is numeric, not affected by --re)
-dj-indexer search --re --genre "tech(no|house)" --bpm-min 125 --bpm-max 140
+# Regex on artist, plus non-regex filters
+dj-indexer search --re --artist "bicep|objekt" --source "USB1" --bpm-min 120
+# Result: artist uses regex, source uses LIKE, bpm-min uses numeric comparison
 
 # Broad regex (all fields) -- does NOT need --re
 dj-indexer search --regex "bicep|objekt"
 
-# Broad regex + additional field filter
-dj-indexer search --regex "remix" --in-rekordbox --bpm-min 120
+# Combining both: broad regex + field-scoped regex
+dj-indexer search --regex "remix" --re --genre "tech(no|house)" --bpm-min 120
+# Result: broad regex on all fields AND genre filter also uses regex
 ```
 
-Note: `--regex` (broad all-fields search) and `--re` (field filter modifier) are independent. You can use both together -- the broad regex adds an additional AND condition on top of the field filters.
+**Key Points:**
+- `--re` is global: when present, ALL text field filters use regex
+- Position on command line doesn't matter
+- Only affects text fields (bpm, source without wildcards, etc. are unaffected)
+- `--regex` and `--re` are independent and can be used together
 
 ##### Regex implementation:
 SQLite has no built-in regex. Register a Python function on the connection:
