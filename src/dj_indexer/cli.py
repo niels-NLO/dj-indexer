@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from dj_indexer import db, scanner, rekordbox_xml, rekordbox_usb, search, stats, export, query, analyze
+from dj_indexer import db, scanner, rekordbox_xml, rekordbox_usb, search, stats, export, query, analyze, export_results
 
 
 def main():
@@ -55,6 +55,10 @@ def main():
     search_parser.add_argument("--playlist", help="Filter by playlist name")
     search_parser.add_argument("--re", action="store_true", help="Enable regex mode for field filters")
     search_parser.add_argument("--limit", type=int, default=100, help="Max results (default: 100)")
+    search_parser.add_argument("--export-csv", type=Path, help="Export results to CSV file")
+    search_parser.add_argument("--columns", nargs="+", help="Columns to export (space-separated)")
+    search_parser.add_argument("--path-conversion", choices=["mac-to-windows", "windows-to-mac"], help="Convert file paths")
+    search_parser.add_argument("--volume-map", nargs="+", help="Volume mapping (e.g., USB1=E USB2=F)")
 
     # cues command
     cues_parser = subparsers.add_parser("cues", help="Show cue points for tracks")
@@ -76,6 +80,10 @@ def main():
     query_parser = subparsers.add_parser("query", help="Run raw SQL SELECT query")
     query_parser.add_argument("sql", nargs="?", default=None, help="SQL SELECT statement")
     query_parser.add_argument("--query-file", type=Path, help="Path to .sql file")
+    query_parser.add_argument("--export-csv", type=Path, help="Export results to CSV file")
+    query_parser.add_argument("--columns", nargs="+", help="Columns to export (space-separated)")
+    query_parser.add_argument("--path-conversion", choices=["mac-to-windows", "windows-to-mac"], help="Convert file paths")
+    query_parser.add_argument("--volume-map", nargs="+", help="Volume mapping (e.g., USB1=E USB2=F)")
 
     # analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze collection by folder, format, etc.")
