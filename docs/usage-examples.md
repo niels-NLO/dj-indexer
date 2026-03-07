@@ -478,6 +478,24 @@ uv run dj-indexer search "deep" --limit 10
 uv run dj-indexer search --bpm-min 128 --limit 30
 ```
 
+### Exporting Search Results to CSV
+
+Use `--export-csv <file>` to save search results directly to a CSV file. Combine with `--columns` to choose which fields to include.
+
+```bash
+# Export all search results to CSV
+uv run dj-indexer search "bicep" --export-csv bicep.csv
+
+# Export with specific columns
+uv run dj-indexer search --artist "Bicep" --in-rekordbox --export-csv bicep_rb.csv --columns artist title bpm musical_key source_label
+
+# Export filtered results (BPM range + genre)
+uv run dj-indexer search --genre "techno" --bpm-min 125 --bpm-max 135 --export-csv techno_set.csv
+
+# Export tracks needing cue prep
+uv run dj-indexer search --no-cues --export-csv needs_prep.csv --columns artist title bpm source_label
+```
+
 ### Search Best Practices
 
 **Performance:**
@@ -670,6 +688,21 @@ uv run dj-indexer query "SELECT file_format, COUNT(*) as count FROM tracks WHERE
 
 # Duplicate filenames across sources
 uv run dj-indexer query "SELECT filename_lower, COUNT(*) as copies, GROUP_CONCAT(source_label) as sources FROM tracks GROUP BY filename_lower HAVING COUNT(*) > 1"
+```
+
+### Exporting Query Results to CSV
+
+Use `--export-csv <file>` to save query results to a CSV file. Works with both inline SQL and `--query-file`.
+
+```bash
+# Export inline query results to CSV
+uv run dj-indexer query "SELECT artist, title, bpm, source_label FROM tracks WHERE genre LIKE '%techno%'" --export-csv techno.csv
+
+# Export query-file results to CSV
+uv run dj-indexer query --query-file my_analysis.sql --export-csv analysis.csv
+
+# Export with specific columns (overrides SELECT columns in output)
+uv run dj-indexer query "SELECT * FROM tracks WHERE in_rekordbox=1" --export-csv rb_tracks.csv --columns artist title bpm musical_key
 ```
 
 ### Collection Analytics
